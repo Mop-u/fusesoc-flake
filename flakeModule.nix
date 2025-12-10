@@ -45,8 +45,7 @@ in
                     mkFusesocConf = sources: builtins.concatStringsSep "\n" (lib.mapAttrsToList (mkFusesocLib) sources);
                 in
                 {
-                    # See: https://flake.parts/options/devshell.html
-                    devshells.default =
+                    devShells.default =
                         let
                             fusesocConf = pkgs.writeTextFile {
                                 name = "fusesoc.conf";
@@ -55,7 +54,7 @@ in
                             fusesocWrapped = pkgs.writeShellScriptBin "fusesoc" ''
                                 exec ${pkgs.fusesoc}/bin/fusesoc --config ${fusesocConf} $@
                             '';
-                        in
+                        in pkgs.mkShell
                         {
                             packages = lib.concatLists [
                                 [ fusesocWrapped ]
@@ -66,10 +65,7 @@ in
                                 (lib.optional cfg.withCcache pkgs.ccache)
                                 cfg.extraPackages
                             ];
-                            env = lib.optional cfg.withCcache {
-                                name = "OBJCACHE";
-                                value = "ccache";
-                            };
+                            shellHook = lib.optionalString cfg.withCcache "OBJCACHE=ccache";
                         };
                 };
         }

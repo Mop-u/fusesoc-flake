@@ -73,7 +73,7 @@ in
                                 (lib.optional cfg.withCcache cfg.ccachePkg)
                                 cfg.extraPackages
                             ];
-                            shellHook = lib.optionalString cfg.withCcache "OBJCACHE=ccache";
+                            shellHook = lib.optionalString cfg.withCcache "export OBJCACHE=ccache";
                         };
                 };
         }

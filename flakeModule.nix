@@ -23,7 +23,15 @@ in
                 in
                 {
                     withVerilator = lib.mkEnableOption "Include verilator";
+                    verilatorPkg = lib.mkOption {
+                        type = types.package;
+                        default = pkgs.verilator;
+                    };
                     withCcache = lib.mkEnableOption "Use ccache with verilator";
+                    ccachePkg = lib.mkOption {
+                        type = types.package;
+                        default = pkgs.ccache;
+                    };
                     sources = lib.mkOption {
                         type = types.attrsOf (types.either types.path types.str);
                         default = { };
@@ -54,15 +62,15 @@ in
                             fusesocWrapped = pkgs.writeShellScriptBin "fusesoc" ''
                                 exec ${pkgs.fusesoc}/bin/fusesoc --config ${fusesocConf} $@
                             '';
-                        in pkgs.mkShell
-                        {
+                        in
+                        pkgs.mkShell {
                             packages = lib.concatLists [
                                 [ fusesocWrapped ]
                                 (lib.optionals cfg.withVerilator [
-                                    pkgs.verilator
-                                    pkgs.zlib.dev
+                                    cfg.verilatorPkg
+                                    pkgs.zlib.dev # needed for generating fst traces
                                 ])
-                                (lib.optional cfg.withCcache pkgs.ccache)
+                                (lib.optional cfg.withCcache cfg.ccachePkg)
                                 cfg.extraPackages
                             ];
                             shellHook = lib.optionalString cfg.withCcache "OBJCACHE=ccache";

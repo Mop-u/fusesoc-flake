@@ -22,6 +22,10 @@ in
                     inherit (lib) types;
                 in
                 {
+                    fusesocPkg = lib.mkOption {
+                        type = types.package;
+                        default = pkgs.fusesoc;
+                    };
                     withVerilator = lib.mkEnableOption "Include verilator";
                     verilatorPkg = lib.mkOption {
                         type = types.package;
@@ -60,7 +64,7 @@ in
                                 text = mkFusesocConf cfg.sources;
                             };
                             fusesocWrapped = pkgs.writeShellScriptBin "fusesoc" ''
-                                exec ${pkgs.fusesoc}/bin/fusesoc --config ${fusesocConf} $@
+                                exec ${cfg.fusesocPkg}/bin/fusesoc --config ${fusesocConf} $@
                             '';
                         in
                         pkgs.mkShell {

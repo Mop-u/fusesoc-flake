@@ -10,7 +10,7 @@
 lib.extendMkDerivation {
     constructDrv = stdenv.mkDerivation;
     excludeDrvArgNames = [
-        "vlnv"
+        "core"
         "target"
         "extraArgs"
         "dependencies"
@@ -52,7 +52,7 @@ lib.extendMkDerivation {
         in
         finalAttrs:
         {
-            vlnv,
+            core,
             target ? "default",
             extraArgs ? "",
             dependencies,
@@ -60,7 +60,7 @@ lib.extendMkDerivation {
             passthru ? { },
         }@args:
         let
-            parsed = fusesocLib.parseVlnv finalAttrs.passthru.vlnv;
+            parsed = fusesocLib.parseVlnv finalAttrs.passthru.core.name;
             fusesocWrapped =
                 let
                     conf = mkFusesocConf finalAttrs.passthru.dependencies;
@@ -81,7 +81,7 @@ lib.extendMkDerivation {
             passthru = passthru // {
                 inherit
                     dependencies
-                    vlnv
+                    core
                     target
                     extraArgs
                     parsed
@@ -99,17 +99,21 @@ lib.extendMkDerivation {
                         "${fusesocWrapped}/bin/fusesoc"
                         "run --target ${finalAttrs.passthru.target}"
                         finalAttrs.passthru.extraArgs
-                        finalAttrs.passthru.vlnv
+                        finalAttrs.passthru.core.name
                     ];
                 in
                 buildCmd;
             installPhase =
                 let
-                    vlnvDir = sanitize "([a-zA-Z0-9\.])" finalAttrs.passthru.vlnv;
+                    vlnvDir = sanitize "([a-zA-Z0-9\.])" finalAttrs.passthru.core.name;
+                    toolName = lib.flatten [
+                        finalAttrs.passthru.core.targets.${finalAttrs.passthru.target}.default_tool or [ ]
+                    ];
+                    buildFolder = lib.concatStringsSep "-" ([ finalAttrs.passthru.target ] ++ toolName);
                 in
                 ''
                     mkdir -p $out
-                    cp -r ./build/${vlnvDir}/${finalAttrs.passthru.target}/* $out/
+                    cp -r ./build/${vlnvDir}/${buildFolder}/* $out/
                 '';
         };
 }

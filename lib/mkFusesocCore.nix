@@ -72,7 +72,7 @@ lib.extendMkDerivation {
                             inherit (finalAttrs.passthru) buildInputs dependencies;
                         in
                         {
-                            vlnv = finalAttrs.passthru.core.name;
+                            inherit (finalAttrs.passthru) core;
                             target = n;
                             dependencies = dependencies ++ [ "${finalAttrs.finalPackage}" ];
                             nativeBuildInputs =
@@ -89,7 +89,7 @@ lib.extendMkDerivation {
                         inherit (finalAttrs.passthru) buildInputs dependencies;
                     in
                     {
-                        vlnv = finalAttrs.passthru.core.name;
+                        inherit (finalAttrs.passthru) core;
                         target =
                             let
                                 targets = builtins.attrNames finalAttrs.passthru.core.targets;

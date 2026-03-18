@@ -5,7 +5,6 @@
     runCommand,
     writeText,
     formats,
-    fusesoc,
     fusesocLib,
     runFusesocCore,
 }:
@@ -84,6 +83,27 @@ lib.extendMkDerivation {
                         }
                     )
                 ) finalAttrs.passthru.core.targets;
+                devShell = runFusesocCore (
+                    _:
+                    let
+                        inherit (finalAttrs.passthru) buildInputs dependencies;
+                    in
+                    {
+                        vlnv = finalAttrs.passthru.core.name;
+                        target =
+                            let
+                                targets = builtins.attrNames finalAttrs.passthru.core.targets;
+                                hasDefault = builtins.hasAttr "default" finalAttrs.passthru.core.targets;
+                            in
+                            if hasDefault then "default" else builtins.head (builtins.attrNames targets);
+                        dependencies = dependencies ++ [ "${finalAttrs.finalPackage}" ];
+                        nativeBuildInputs =
+                            if builtins.isList buildInputs then
+                                buildInputs
+                            else
+                                builtins.concatMap (x: x.value) (lib.attrsToList buildInputs);
+                    }
+                );
             };
             paths =
                 let

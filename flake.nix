@@ -29,7 +29,7 @@
                     runFusesocCore = pkgs.callPackage ./lib/runFusesocCore.nix { inherit fusesoc fusesocLib; };
 
                     mkFusesocCore = pkgs.callPackage ./lib/mkFusesocCore.nix {
-                        inherit fusesoc fusesocLib runFusesocCore;
+                        inherit fusesocLib runFusesocCore;
                     };
                 };
             }

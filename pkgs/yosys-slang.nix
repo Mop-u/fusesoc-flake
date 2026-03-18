@@ -9,14 +9,14 @@
 }:
 stdenv.mkDerivation (finalAttrs: {
     pname = "yosys-slang";
-    version = "0-unstable-2026-02-21";
+    version = "0-unstable-2026-03-16";
     plugin = "slang";
 
     src = fetchFromGitHub {
         owner = "povik";
         repo = "yosys-slang";
-        rev = "d82b0b163a725fc1a401fbb6b465cd862517ec1f";
-        hash = "sha256-z+eEhTb9UZJ/L4X0GLwJMcjPcaPbnGFXJe09eLXGBB4=";
+        rev = "8c82a4b7c4dff83d1d446610d8ee582aa094fd9d";
+        hash = "sha256-wpOeskpD9kK0d163G1zn5atO4An80xNREaahmHFGPsY=";
         fetchSubmodules = true; # Needed to fetch the pinned slang source
     };
 

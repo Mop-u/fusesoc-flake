@@ -1,21 +1,38 @@
 {
     description = "Helper for a declarative fusesoc environment";
 
-    # See: https://github.com/VTimofeenko/writing-flake-modules/blob/master/example-1-configurable-inputs-bumper/provider/flake.nix
     inputs = {
-        nixpkgs-lib.url = "github:Nixos/nixpkgs/nixos-25.11?dir=lib";
-        flake-parts.url = "github:hercules-ci/flake-parts";
+        nixpkgs.url = "github:Nixos/nixpkgs/nixos-unstable";
     };
 
     outputs =
-        inputs@{ flake-parts, ... }:
-        flake-parts.lib.mkFlake { inherit inputs; } (
-            { flake-parts-lib, ... }:
+        inputs@{ self, nixpkgs, ... }:
+        let
+            inherit (nixpkgs) lib;
+            forEachSystem = systems: f: builtins.foldl' (lib.recursiveUpdate) { } (builtins.map (f) systems);
+        in
+        (forEachSystem [ "x86_64-linux" ] (
+            system:
+            let
+                pkgs = nixpkgs.legacyPackages.${system};
+            in
             {
-                flake.flakeModule = flake-parts-lib.importApply ./flakeModule.nix {
-                    inherit flake-parts-lib;
-                    inherit (inputs) nixpkgs-lib;
+                packages.${system} = rec {
+                    yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };
+
+                    edalize = pkgs.callPackage ./pkgs/edalize.nix { };
+
+                    fusesoc = pkgs.callPackage ./pkgs/fusesoc.nix { inherit edalize; };
+
+                    fusesocLib = pkgs.callPackage ./lib/fusesocLib.nix { };
+
+                    runFusesocCore = pkgs.callPackage ./lib/runFusesocCore.nix { inherit fusesoc fusesocLib; };
+
+                    mkFusesocCore = pkgs.callPackage ./lib/mkFusesocCore.nix {
+                        inherit fusesocLib runFusesocCore;
+                    };
                 };
             }
-        );
+        ))
+        // { };
 }

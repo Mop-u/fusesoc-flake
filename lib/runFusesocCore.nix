@@ -105,7 +105,14 @@ lib.extendMkDerivation {
                 buildCmd;
             installPhase =
                 let
-                    vlnvDir = sanitize "([a-zA-Z0-9\.])" finalAttrs.passthru.core.name;
+                    vlnvDir =
+                        with parsed;
+                        lib.concatStringsSep "_" [
+                            vendor
+                            library
+                            name
+                            version
+                        ];
                     toolName = lib.flatten [
                         finalAttrs.passthru.core.targets.${finalAttrs.passthru.target}.default_tool or [ ]
                     ];

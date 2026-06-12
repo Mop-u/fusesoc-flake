@@ -1,11 +1,10 @@
 {
-    fusesoc,
-    edalize,
-    python3Packages,
-    fetchFromGithub,
+  fusesoc,
+  edalize,
+  python3Packages,
 }:
 fusesoc.override {
-    python3Packages = python3Packages // {
-        inherit edalize;
-    };
+  python3Packages = python3Packages // {
+    inherit edalize;
+  };
 }

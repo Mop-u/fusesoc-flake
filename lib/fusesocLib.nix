@@ -39,7 +39,7 @@ rec {
     else
       throw "Unable to parse vlnv ${vlnv}. Expected format: `vendor:library:name:version`.";
 
-  parseDep =
+  parseDependency =
     cvlnv:
     let
       # https://fusesoc.readthedocs.io/en/stable/user/build_system/dependencies.html#version-constraints
@@ -105,11 +105,7 @@ rec {
     in
     parsed // { inherit condition; };
 
-  parseDeps =
-    coreDrv:
-    map parseDep (
-      builtins.concatLists (lib.mapAttrsToList (n: v: v.depend or [ ]) (coreDrv.core.filesets or { }))
-    );
+  resolveDeps = import ./resolveDeps.nix { inherit lib parseDependency; };
 
   mkCoreSet =
     coreList:
@@ -126,44 +122,35 @@ rec {
           {
             ${vendor}.${library}.${name} =
               let
-                prev = (acc.${vendor}.${library}.${name} or { });
+                prev = (acc.${vendor}.${library}.${name}.passthru or { });
                 linkedCore = coreDrv.overrideAttrs (
-                  final: prev: {
-                    passthru = prev.passthru // {
-                      dependencies = prev.passthru.dependencies ++ (fetchDeps coreDrv self);
+                  _: prevAttrs: {
+                    passthru = prevAttrs.passthru // {
+                      dependencies = prevAttrs.passthru.dependencies ++ (resolveDeps coreDrv self);
                     };
                   }
                 );
               in
-              prev
-              // {
-                latest = linkedCore; # latest version is the last core in the list.
-                ${coreDrv.version} = linkedCore; # use pad 3 version for consistency
-                list = [ linkedCore ] ++ (prev.list or [ ]); # list descending
-              };
+              # The last core is the latest version and the default if no semver attribute is specified.
+              linkedCore.overrideAttrs (
+                _: prevAttrs: {
+                  passthru =
+                    (removeAttrs prev (
+                      builtins.filter (n: isNull (builtins.match ''^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$'' n)) (
+                        lib.attrNames prev
+                      )
+                    ))
+                    // prevAttrs.passthru
+                    // {
+                      ${coreDrv.version} = linkedCore; # use pad 3 version for consistency
+                      list = [ linkedCore ] ++ (prev.list or [ ]); # list descending
+                    };
+                }
+              );
           }
       ) { } (builtins.sort (p: q: lib.versionOlder p.version q.version) coreList); # sort versions ascending
     in
     self;
-
-  fetchDepsShallow =
-    coreDrv: coreSet:
-    map (
-      req:
-      let
-        candidates = with req; coreSet.${vendor}.${library}.${name};
-      in
-      lib.findFirst (dep: req.condition dep.version) candidates.latest candidates.list
-    ) (parseDeps coreDrv);
-
-  fetchDepsRecursive =
-    coreDrv: coreSet:
-    let
-      deps = fetchDepsShallow coreDrv coreSet;
-    in
-    deps ++ (builtins.concatMap (dep: fetchDepsRecursive dep coreSet) deps);
-
-  fetchDeps = coreDrv: coreSet: lib.unique (map (drv: "${drv}") (fetchDepsRecursive coreDrv coreSet));
 
   wrapFusesoc =
     let

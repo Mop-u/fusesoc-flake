@@ -62,9 +62,8 @@ lib.extendMkDerivation {
           ;
         core = core';
         run = mkRunners {
-          inherit (finalAttrs.passthru) core;
+          inherit (finalAttrs.passthru) core tools;
           dependencies = finalAttrs.passthru.dependencies ++ [ "${finalAttrs.finalPackage}" ];
-          nativeBuildInputs = finalAttrs.passthru.tools;
         };
       };
       phases = [

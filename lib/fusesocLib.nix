@@ -203,17 +203,13 @@ rec {
     {
       core,
       dependencies,
-      nativeBuildInputs ? [ ],
+      tools ? [ ],
     }:
     lib.mapAttrs (
       target: v:
       runCore (_: {
         inherit core target dependencies;
-        nativeBuildInputs =
-          if (builtins.isList nativeBuildInputs) then
-            nativeBuildInputs
-          else
-            nativeBuildInputs."${target}" or nativeBuildInputs.default or [ ];
+        tools = if (builtins.isList tools) then tools else tools."${target}" or tools.default or [ ];
       })
     ) core.targets;
 

@@ -1,10 +1,11 @@
 {
-  lib,
   formats,
-  readYAML,
-  stdenvNoCC,
+  lib,
   mkRunners,
   parseVlnv,
+  readYAML,
+  stdenvNoCC,
+  stripCond,
 }:
 lib.extendMkDerivation {
   constructDrv = stdenvNoCC.mkDerivation;
@@ -25,13 +26,15 @@ lib.extendMkDerivation {
     }:
     let
       useCoreFile = isNull core;
-      core' = if useCoreFile then readYAML "${coreRoot}/${coreName}" else core;
+      core' = if useCoreFile then (readYAML "${coreRoot}/${coreName}") else core;
       parsed = parseVlnv finalAttrs.passthru.core.name;
+
       coreFileset = builtins.concatLists (
         lib.mapAttrsToList (
           n: v:
           map (
-            relPath: if builtins.isAttrs relPath then (builtins.head (builtins.attrNames relPath)) else relPath
+            entry:
+            stripCond (if builtins.isAttrs entry then (builtins.head (builtins.attrNames entry)) else entry)
           ) (v.files or [ ])
         ) finalAttrs.passthru.core.filesets
       );

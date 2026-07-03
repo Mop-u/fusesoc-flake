@@ -105,6 +105,17 @@ rec {
     in
     parsed // { inherit condition; };
 
+  stripCond =
+    cond:
+    let
+      # extract the argument from conditional syntax
+      # e.g.
+      # "tool_quartus ? (data/fifo.sdc)" -> ["data/fifo.sdc"]
+      # "rtl/fifo.v" -> Null
+      stripped = builtins.match ''^!?[_a-zA-Z]*[[:space:]]*\??[[:space:]]*\((.*)\)$'' cond;
+    in
+    if (isNull stripped) then cond else builtins.head stripped;
+
   resolveDeps = import ./resolveDeps.nix { inherit lib parseDependency; };
 
   mkCoreSet =
@@ -215,12 +226,13 @@ rec {
 
   importCore = import ./importCore.nix {
     inherit
-      lib
       formats
-      readYAML
-      stdenvNoCC
+      lib
       mkRunners
       parseVlnv
+      readYAML
+      stdenvNoCC
+      stripCond
       ;
   };
 

@@ -19,16 +19,13 @@ lib.extendMkDerivation {
     {
       coreRoot,
       coreName,
-      core ? null,
+      core ? readYAML "${coreRoot}/${coreName}",
       tools ? [ ],
       dependencies ? [ ],
       passthru ? { },
     }:
     let
-      useCoreFile = isNull core;
-      core' = if useCoreFile then (readYAML "${coreRoot}/${coreName}") else core;
       parsed = parseVlnv finalAttrs.passthru.core.name;
-
       coreFileset = builtins.concatLists (
         lib.mapAttrsToList (
           n: v:
@@ -62,8 +59,8 @@ lib.extendMkDerivation {
           dependencies
           parsed
           tools
+          core
           ;
-        core = core';
         run = mkRunners {
           inherit (finalAttrs.passthru) core tools;
           dependencies = finalAttrs.passthru.dependencies ++ [ "${finalAttrs.finalPackage}" ];
@@ -78,11 +75,13 @@ lib.extendMkDerivation {
         (map (file: ''
           mkdir -p $out/${dirOf file}
           cp ${file} $out/${file}
-        '') (coreFileset ++ (lib.optional useCoreFile coreName)))
-        ++ (lib.optional (!useCoreFile) ''
-          mkdir -p $out/
-          cp ${(formats.yaml { }).generate coreName finalAttrs.passthru.core} $out/${coreName}
-        '')
+        '') coreFileset)
+        ++ [
+          ''
+            mkdir -p $out/
+            cp ${(formats.yaml { }).generate coreName finalAttrs.passthru.core} $out/${coreName}
+          ''
+        ]
       );
     };
 }

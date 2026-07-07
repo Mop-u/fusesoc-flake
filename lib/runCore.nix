@@ -26,17 +26,19 @@ lib.extendMkDerivation {
       ...
     }:
     let
+      opt = str: lib.optional (str != "") str;
+      mapOpts = strs: builtins.concatLists (map opt strs);
       parsed = parseVlnv finalAttrs.passthru.core.name;
       fusesocWrapped = wrapFusesoc finalAttrs.passthru.dependencies;
     in
     {
       pname =
         with parsed;
-        lib.concatStringsSep "_" [
+        lib.concatStringsSep "_" (mapOpts [
           vendor
           library
           "${name}-${finalAttrs.passthru.target}"
-        ];
+        ]);
       version = lib.versions.pad 3 parsed.version;
       passthru = passthru // {
         withTools =
@@ -73,12 +75,12 @@ lib.extendMkDerivation {
         let
           vlnvDir =
             with parsed;
-            lib.concatStringsSep "_" [
+            lib.concatStringsSep "_" (mapOpts [
               vendor
               library
               name
               version
-            ];
+            ]);
           toolName = lib.flatten [
             finalAttrs.passthru.core.targets.${finalAttrs.passthru.target}.default_tool or [ ]
           ];

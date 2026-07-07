@@ -34,7 +34,7 @@ rec {
         vendor = builtins.elemAt split 0;
         library = builtins.elemAt split 1;
         name = builtins.elemAt split 2;
-        version = if builtins.length split == 4 then lib.last split else "0.0.0";
+        version = if builtins.length split == 4 then lib.last split else "0";
       }
     else
       throw "Unable to parse vlnv ${vlnv}. Expected format: `vendor:library:name:version`.";
@@ -55,39 +55,23 @@ rec {
         let
           inherit (parsed) version;
 
-          versionPad = lib.versions.pad 3 version;
-
-          cmp = builtins.compareVersions check versionPad;
+          cmp = builtins.compareVersions check version;
 
           specificity =
-            if builtins.length split < 4 then 0 else builtins.length (lib.splitString "." version);
-
-          splitVer = builtins.splitVersion versionPad;
-
-          nextMajor = lib.concatStringsSep "." [
-            ((builtins.head splitVer) + 1)
-            0
-            0
-          ];
-
-          nextMinor = lib.concatStringsSep "." [
-            (builtins.elemAt splitVer 0)
-            ((builtins.elemAt splitVer 1) + 1)
-            0
-          ];
+            if builtins.length split < 4 then 0 else builtins.length (builtins.splitVersion version);
 
           caretVersion =
             lib.concatStringsSep "."
               (builtins.foldl'
                 (acc: elem: {
-                  hitNonZero = acc.hitNonZero || (elem != 0);
-                  newVer = acc.newVer ++ [ (if (acc.hitNonZero || (elem == 0)) then 0 else elem + 1) ];
+                  hitNonZero = acc.hitNonZero || (elem != "0");
+                  newVer = (if acc.hitNonZero then acc.newVer else acc.newVer ++ [ elem ]);
                 })
                 {
                   hitNonZero = false;
                   newVer = [ ];
                 }
-                splitVer
+                (builtins.splitVersion version)
               ).newVer;
 
           conds = {
@@ -96,8 +80,14 @@ rec {
             ">" = cmp > 0;
             "<=" = cmp <= 0;
             ">=" = cmp >= 0;
-            "^" = conds.">=" && (lib.versionOlder check caretVersion);
-            "~" = conds.">=" && (lib.versionOlder check (if specificity > 1 then nextMinor else nextMajor));
+            "^" =
+              conds.">="
+              && (lib.versions.compareVersions (lib.zipListsWith (a: _: a) check caretVersion) caretVersion <= 0);
+            "~" =
+              let
+                f = if specificity > 1 then lib.versions.majorMinor else lib.versions.major;
+              in
+              conds.">=" && ((lib.versions.compareVersions (f check) (f version)) <= 0);
             "" = conds."=";
           };
         in
@@ -153,7 +143,7 @@ rec {
                     ))
                     // prevAttrs.passthru
                     // {
-                      ${coreDrv.version} = linkedCore; # use pad 3 version for consistency
+                      ${coreDrv.version} = linkedCore;
                       list = [ linkedCore ] ++ (prev.list or [ ]); # list descending
                     };
                 }

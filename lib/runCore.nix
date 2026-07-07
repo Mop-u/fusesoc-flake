@@ -39,7 +39,7 @@ lib.extendMkDerivation {
           library
           "${name}-${finalAttrs.passthru.target}"
         ]);
-      version = lib.versions.pad 3 parsed.version;
+      inherit (parsed) version;
       passthru = passthru // {
         withTools =
           toolList:

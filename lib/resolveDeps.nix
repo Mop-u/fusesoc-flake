@@ -14,9 +14,11 @@ let
     map (
       req:
       let
-        candidates = with req; coreSet.${vendor}.${library}.${name};
+        core = coreSet.${req.vendor}.${req.library}.${req.name};
+        default = core; # toplevel derivation is always the latest version
+        candidates = core.list;
       in
-      lib.findFirst (dep: req.condition dep.version) candidates.latest candidates.list
+      lib.findFirst (dep: req.condition dep.version) default candidates
     ) (parseDeps coreDrv);
 
   fetchDepsRecursive =

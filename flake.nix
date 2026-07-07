@@ -20,22 +20,31 @@
       inherit (nixpkgs) lib;
       forEachSystem = systems: f: builtins.foldl' (lib.recursiveUpdate) { } (map f systems);
     in
-    (forEachSystem [ "x86_64-linux" ] (
-      system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        packages.${system} = rec {
-          inherit (moppkgs.packages.${system}) edalize;
+    (forEachSystem
+      [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "i686-linux"
+        "x86_64-darwin"
+        "x86_64-linux"
+      ]
+      (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          packages.${system} = rec {
+            inherit (moppkgs.packages.${system}) edalize;
 
-          yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };
+            yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };
 
-          fusesoc = pkgs.callPackage ./pkgs/fusesoc.nix { inherit edalize; };
+            fusesoc = pkgs.callPackage ./pkgs/fusesoc.nix { inherit edalize; };
 
-          fusesocLib = pkgs.callPackage ./lib/fusesocLib.nix { inherit fusesoc; };
-        };
-      }
-    ))
+            fusesocLib = pkgs.callPackage ./lib/fusesocLib.nix { inherit fusesoc; };
+          };
+        }
+      )
+    )
     // { };
 }

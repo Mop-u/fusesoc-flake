@@ -18,9 +18,13 @@
     }:
     let
       inherit (nixpkgs) lib;
-      forEachSystem = systems: f: builtins.foldl' (lib.recursiveUpdate) { } (map f systems);
+      forEachSystem =
+        systems: f:
+        builtins.foldl' (lib.recursiveUpdate) { } (
+          map (system: builtins.mapAttrs (_: v: { ${system} = v; }) (f system)) systems
+        );
     in
-    (forEachSystem
+    forEachSystem
       [
         "aarch64-darwin"
         "aarch64-linux"
@@ -32,19 +36,82 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          inherit (self.packages.${system}) fusesoc;
+          coreList = pkgs.callPackage ./cores/fusesoc-cores.nix { fusesocLib = fusesoc.lib; };
+          coreSet = fusesoc.lib.mkCoreSet coreList;
         in
         {
-          packages.${system} = rec {
+          packages = {
             inherit (moppkgs.packages.${system}) edalize;
 
             yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };
 
-            fusesoc = pkgs.callPackage ./pkgs/fusesoc.nix { inherit edalize; };
+            # fusesoc lib is accessible thru `packages.${system}.fusesoc.lib`
+            fusesoc =
+              let
+                pkg = pkgs.fusesoc.override {
+                  python3Packages = pkgs.python3Packages // {
+                    inherit (self.packages.${system}) edalize;
+                  };
+                };
+              in
+              pkg.overrideAttrs (
+                # hack to get around `nix flake check` complaining about fusesocLib not being a derivation.
+                _: prev: {
+                  passthru = prev.passthru // {
+                    lib = pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; };
+                  };
+                }
+              );
 
-            fusesocLib = pkgs.callPackage ./lib/fusesocLib.nix { inherit fusesoc; };
+            # This will be dropped in favor of fusesoc.lib in v0.3
+            fusesocLib = (pkgs.writeText "placeholder" "placeholder").overrideAttrs {
+              passthru = lib.warn "packages.${system}.fusesocLib is deprecated, use packages.${system}.fusesoc.lib instead." fusesoc.lib;
+            };
           };
+          devShells.default = pkgs.mkShell {
+            packages = [ (fusesoc.lib.wrapFusesoc coreList) ];
+          };
+          checks =
+            let
+              noVendor = coreSet.""."";
+              inherit (coreSet) bespoke-silicon-group;
+            in
+            {
+              inherit (noVendor)
+                SD-card-controller
+                ac97
+                altera_virtual_jtag
+                verilog-arbiter
+                cdc_utils
+                ethmac
+                fplib
+                jtag_tap
+                ompic
+                ;
+              bsg-basejump_stl-hard = bespoke-silicon-group.basejump_stl.hard;
+              bsg-basejump_stl-nonsynth = bespoke-silicon-group.basejump_stl.nonsynth;
+              bsg-basejump_stl-rtl = bespoke-silicon-group.basejump_stl.rtl;
+              bsg-external-hardfloat = coreSet.bsg-external.hardfloat."0.0.1"; # original corename is mangled like this
+              jtag_vpi_0-r3 = noVendor.jtag_vpi."0-r3";
+              jtag_vpi_0-r4 = noVendor.jtag_vpi."0-r4";
+              jtag_vpi_0-r5 = noVendor.jtag_vpi."0-r5";
+              "mor1kx_5.0-r2" = noVendor.mor1kx."5.0-r2";
+              "mor1kx_5.1" = noVendor.mor1kx."5.1";
+              "mor1kx_5.2" = noVendor.mor1kx."5.2";
+              # Runnable testbenches
+              # SD-card-controller-lint = noVendor.SD-card-controller.run.lint.withTools [ pkgs.verilator ];
+              # ac97-sim = noVendor.ac97.run.sim.withTools [ pkgs.iverilog ];
+              ethmac-lint = noVendor.ethmac.run.lint.withTools [ pkgs.verilator ];
+              adv_debug_sys = noVendor.adv_debug_sys.run.jsp_tb.withTools [ pkgs.iverilog ];
+              inherit ((noVendor.fifo.withTools [ pkgs.iverilog ]).run)
+                fifo_fwft_tb
+                dual_clock_fifo_tb
+                fifo_tb
+                ;
+              "i2c_1.15-sim" = noVendor.i2c."1.15".run.sim.withTools [ pkgs.iverilog ];
+              "i2c_1.14-r1-sim" = noVendor.i2c."1.14-r1".run.sim.withTools [ pkgs.iverilog ];
+            };
         }
-      )
-    )
-    // { };
+      );
 }

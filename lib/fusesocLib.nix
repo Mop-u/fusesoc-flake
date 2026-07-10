@@ -1,5 +1,9 @@
 {
   lib,
+  fetchFromGitHub,
+  fetchgit,
+  fetchsvn,
+  fetchurl,
   formats,
   fusesoc,
   remarshal,
@@ -126,6 +130,58 @@ rec {
 
   resolveDeps = import ./resolveDeps.nix { inherit lib parseDependency; };
 
+  fetchProvider =
+    core: hash:
+    let
+      inherit (core) provider;
+    in
+    {
+      local = throw "local providers should not be fetched! use coreRoot.";
+      github = fetchFromGitHub {
+        inherit (core) name;
+        owner = provider.user;
+        repo = provider.repo;
+        rev = provider.version;
+        inherit hash;
+      };
+      git = fetchgit {
+        inherit (core) name;
+        url = provider.repo;
+        rev = provider.version;
+        inherit hash;
+      };
+      svn = fetchsvn {
+        inherit (core) name;
+        inherit (provider) url;
+        rev = provider.revision;
+        inherit hash;
+      };
+      url =
+        let
+          fetch = fetchurl {
+            inherit (core) name;
+            inherit (provider) url;
+            inherit hash;
+          };
+        in
+        {
+          tar = fetch;
+          zip = fetch;
+          simple =
+            let
+              fileName = lib.last (lib.splitString "/" provider.url);
+            in
+            runCommand "${core.name}-source" { } ''
+              mkdir -p $out
+              ln -s ${fetch} $out/${fileName}
+            '';
+        }
+        .${provider.filetype}
+          or (throw "Unknown url provider filetype ${provider.filetype} in ${core.name}");
+      opencores = throw "opencores provider not yet implemented";
+    }
+    .${provider.name} or (throw "Unknown provider name: ${provider.name}");
+
   mkCoreSet =
     coreList:
     let
@@ -234,6 +290,7 @@ rec {
 
   importCore = import ./importCore.nix {
     inherit
+      fetchProvider
       formats
       lib
       mkRunners

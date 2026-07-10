@@ -76,6 +76,7 @@ lib.extendMkDerivation {
       src = if useProvider then fetchProvider finalAttrs.passthru.core providerHash else coreRoot;
       installPhase =
         let
+          patches = core.provider.patches or [ ];
           patchedCore =
             let
               inherit (finalAttrs.passthru) core;
@@ -85,23 +86,25 @@ lib.extendMkDerivation {
               // {
                 provider = {
                   name = "local";
-                  patches = core.provider.patches or [ ];
+                  inherit patches;
                 };
               }
             else
               core;
+          copyFromPwd =
+            dir:
+            lib.concatStringsSep "\n" (
+              map (file: ''
+                mkdir -p $out/${dirOf file}
+                cp ${file} $out/${file}
+              '') dir
+            );
         in
-        lib.concatStringsSep "\n" (
-          (map (file: ''
-            mkdir -p $out/${dirOf file}
-            cp ${file} $out/${file}
-          '') coreFileset)
-          ++ [
-            ''
-              mkdir -p $out/
-              cp ${(formats.yaml { }).generate coreName patchedCore} $out/${coreName}
-            ''
-          ]
-        );
+        ''
+          mkdir -p $out/
+          ${copyFromPwd coreFileset}
+          cp ${(formats.yaml { }).generate coreName patchedCore} $out/${coreName}
+          ${if useProvider then "cd ${coreRoot}\n${copyFromPwd patches}" else ""}
+        '';
     };
 }

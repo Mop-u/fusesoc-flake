@@ -13,14 +13,9 @@ rec {
   readYAML =
     path:
     let
-      jsonFile =
-        runCommand "from-yaml-${baseNameOf path}"
-          {
-            nativeBuildInputs = [ remarshal ];
-          }
-          ''
-            remarshal -k -if yaml -i "${path}" -of json -o "$out"
-          '';
+      jsonFile = runCommand "from-yaml-${baseNameOf path}" {
+        nativeBuildInputs = [ remarshal ];
+      } ''remarshal -k -if yaml -i "${path}" -of json -o "$out"'';
     in
     builtins.fromJSON (builtins.readFile jsonFile);
 
@@ -28,13 +23,36 @@ rec {
     vlnv:
     let
       split = lib.splitString ":" vlnv;
+      vlnvParts = builtins.length split;
+      noVersion = "0";
     in
-    if builtins.length split >= 3 then
+    if vlnvParts == 1 then
+      {
+        vendor = "";
+        library = "";
+      }
+      // (
+        let
+          legacySplit = lib.splitString "-" vlnv;
+        in
+        if builtins.length legacySplit == 1 then
+          {
+            name = vlnv;
+            version = noVersion;
+          }
+        else
+          {
+            name = builtins.head legacySplit;
+            version = lib.concatStringsSep "-" (builtins.tail legacySplit);
+          }
+      )
+
+    else if vlnvParts >= 3 then
       {
         vendor = builtins.elemAt split 0;
         library = builtins.elemAt split 1;
         name = builtins.elemAt split 2;
-        version = if builtins.length split == 4 then lib.last split else "0";
+        version = if builtins.length split == 4 then lib.last split else noVersion;
       }
     else
       throw "Unable to parse vlnv ${vlnv}. Expected format: `vendor:library:name:version`.";

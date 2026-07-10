@@ -41,13 +41,17 @@ lib.extendMkDerivation {
     in
     {
       pname =
+        let
+          opt = str: lib.optional (str != "") str;
+          mapOpts = strs: builtins.concatLists (map opt strs);
+        in
         with parsed;
-        lib.concatStringsSep "_" [
+        lib.concatStringsSep "_" (mapOpts [
           vendor
           library
           name
-        ];
-      version = lib.versions.pad 3 parsed.version;
+        ]);
+      version = parsed.version;
       passthru = passthru // {
         withTools =
           toolList:
@@ -71,40 +75,26 @@ lib.extendMkDerivation {
       };
       phases = [
         "unpackPhase"
+        "patchPhase"
         "installPhase"
       ];
+      patches = map (patch: "${coreRoot}/${patch}") (finalAttrs.passthru.core.provider.patches or [ ]);
       src = if useProvider then fetchProvider finalAttrs.passthru.core providerHash else coreRoot;
       installPhase =
         let
-          patches = core.provider.patches or [ ];
-          patchedCore =
-            let
-              inherit (finalAttrs.passthru) core;
-            in
-            if useProvider then
-              core
-              // {
-                provider = {
-                  name = "local";
-                  inherit patches;
-                };
-              }
-            else
-              core;
-          copyFromPwd =
-            dir:
-            lib.concatStringsSep "\n" (
-              map (file: ''
-                mkdir -p $out/${dirOf file}
-                cp ${file} $out/${file}
-              '') dir
-            );
+          patchedCore = finalAttrs.passthru.core // {
+            provider.name = "local";
+          };
         in
         ''
           mkdir -p $out/
-          ${copyFromPwd coreFileset}
+          ${lib.concatStringsSep "\n" (
+            map (file: ''
+              mkdir -p $out/${dirOf file}
+              cp ${file} $out/${file}
+            '') coreFileset
+          )}
           cp ${(formats.yaml { }).generate coreName patchedCore} $out/${coreName}
-          ${if useProvider then "cd ${coreRoot}\n${copyFromPwd patches}" else ""}
         '';
     };
 }

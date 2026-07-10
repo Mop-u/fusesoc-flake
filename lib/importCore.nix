@@ -1,4 +1,5 @@
 {
+  fetchProvider,
   formats,
   lib,
   mkRunners,
@@ -9,17 +10,14 @@
 }:
 lib.extendMkDerivation {
   constructDrv = stdenvNoCC.mkDerivation;
-  excludeDrvArgNames = [
-    "coreRoot"
-    "coreName"
-    "dependencies"
-  ];
+  excludeDrvArgNames = [ ];
   extendDrvArgs =
     finalAttrs:
     {
       coreRoot,
       coreName,
       core ? readYAML "${coreRoot}/${coreName}",
+      providerHash ? "",
       tools ? [ ],
       dependencies ? [ ],
       passthru ? { },
@@ -35,6 +33,11 @@ lib.extendMkDerivation {
           ) (v.files or [ ])
         ) finalAttrs.passthru.core.filesets
       );
+      useProvider =
+        let
+          inherit (finalAttrs.passthru) core;
+        in
+        (builtins.hasAttr "provider" core) && (core.provider.name != "local");
     in
     {
       pname =
@@ -70,18 +73,35 @@ lib.extendMkDerivation {
         "unpackPhase"
         "installPhase"
       ];
-      src = coreRoot;
-      installPhase = lib.concatStringsSep "\n" (
-        (map (file: ''
-          mkdir -p $out/${dirOf file}
-          cp ${file} $out/${file}
-        '') coreFileset)
-        ++ [
-          ''
-            mkdir -p $out/
-            cp ${(formats.yaml { }).generate coreName finalAttrs.passthru.core} $out/${coreName}
-          ''
-        ]
-      );
+      src = if useProvider then fetchProvider finalAttrs.passthru.core providerHash else coreRoot;
+      installPhase =
+        let
+          patchedCore =
+            let
+              inherit (finalAttrs.passthru) core;
+            in
+            if useProvider then
+              core
+              // {
+                provider = {
+                  name = "local";
+                  patches = core.provider.patches or [ ];
+                };
+              }
+            else
+              core;
+        in
+        lib.concatStringsSep "\n" (
+          (map (file: ''
+            mkdir -p $out/${dirOf file}
+            cp ${file} $out/${file}
+          '') coreFileset)
+          ++ [
+            ''
+              mkdir -p $out/
+              cp ${(formats.yaml { }).generate coreName patchedCore} $out/${coreName}
+            ''
+          ]
+        );
     };
 }

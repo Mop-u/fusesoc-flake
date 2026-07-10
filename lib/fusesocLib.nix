@@ -156,6 +156,12 @@ rec {
         rev = provider.revision;
         inherit hash;
       };
+      opencores = fetchsvn {
+        inherit (core) name;
+        url = "http://opencores.org/ocsvn/${provider.repo_name}/${provider.repo_name}/${provider.repo_root}";
+        rev = provider.revision;
+        inherit hash;
+      };
       url =
         let
           fetch = fetchurl {
@@ -178,7 +184,6 @@ rec {
         }
         .${provider.filetype}
           or (throw "Unknown url provider filetype ${provider.filetype} in ${core.name}");
-      opencores = throw "opencores provider not yet implemented";
     }
     .${provider.name} or (throw "Unknown provider name: ${provider.name}");
 

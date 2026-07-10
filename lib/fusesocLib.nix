@@ -211,9 +211,7 @@ rec {
                 _: prevAttrs: {
                   passthru =
                     (removeAttrs prev (
-                      builtins.filter (n: isNull (builtins.match ''^[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+$'' n)) (
-                        lib.attrNames prev
-                      )
+                      builtins.filter (n: isNull (builtins.match "^[[:digit:]]+.*$" n)) (lib.attrNames prev)
                     ))
                     // prevAttrs.passthru
                     // {

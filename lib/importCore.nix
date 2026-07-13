@@ -5,6 +5,7 @@
   mkRunners,
   parseVlnv,
   readYAML,
+  resolveDeps,
   stdenvNoCC,
   stripCond,
 }:
@@ -59,6 +60,15 @@ lib.extendMkDerivation {
             final: prev: {
               passthru = prev.passthru // {
                 tools = prev.passthru.tools ++ toolList;
+              };
+            }
+          );
+        linkWith =
+          coreSet:
+          finalAttrs.finalPackage.overrideAttrs (
+            final: prev: {
+              passthru = prev.passthru // {
+                dependencies = prev.passthru.dependencies ++ (resolveDeps finalAttrs.finalPackage coreSet);
               };
             }
           );

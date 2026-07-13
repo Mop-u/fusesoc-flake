@@ -265,7 +265,8 @@ rec {
     in
     sources:
     writeScriptBin "fusesoc" ''
-      exec ${fusesoc}/bin/fusesoc --config ${mkConf sources} $@
+      export FUSESOC_CONFIG=${mkConf sources}
+      exec ${fusesoc}/bin/fusesoc $@
     '';
 
   runCore = import ./runCore.nix {

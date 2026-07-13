@@ -247,20 +247,9 @@ rec {
       mkConf =
         sources:
         writeText "fusesoc.conf" (
-          lib.concatLines
-            (builtins.foldl'
-              (acc: elem: {
-                count = acc.count + 1;
-                libs = acc.libs ++ [
-                  (mkLib "${baseNameOf "${elem}"}-${toString acc.count}" elem)
-                ];
-              })
-              {
-                count = 0;
-                libs = [ ];
-              }
-              sources
-            ).libs
+          lib.concatLines (
+            builtins.foldl' (acc: elem: acc ++ [ (mkLib "${baseNameOf "${elem}"}" elem) ]) [ ] sources
+          )
         );
     in
     sources:

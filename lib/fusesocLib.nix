@@ -232,6 +232,13 @@ rec {
 
   mkCoreSet = extendCoreSet { };
 
+  toCoreList =
+    let
+      unwrap = builtins.concatMap (x: lib.attrsToList x.value);
+    in
+    coreSet:
+    builtins.concatMap (x: x.value.list or [ x.value ]) (unwrap (unwrap (lib.attrsToList coreSet)));
+
   wrapFusesoc =
     let
       sanitize =
@@ -256,7 +263,7 @@ rec {
     in
     sources:
     writeScriptBin "fusesoc" ''
-      export FUSESOC_CONFIG=${mkConf sources}
+      export FUSESOC_CONFIG=${mkConf (if builtins.isList sources then sources else (toCoreList sources))}
       exec ${fusesoc}/bin/fusesoc $@
     '';
 

@@ -38,7 +38,6 @@
           pkgs = nixpkgs.legacyPackages.${system};
           inherit (self.packages.${system}) fusesoc;
           coreList = pkgs.callPackage ./cores/fusesoc-cores.nix { fusesocLib = fusesoc.lib; };
-          coreSet = fusesoc.lib.mkCoreSet coreList;
         in
         {
           packages = {
@@ -59,7 +58,9 @@
                 # hack to get around `nix flake check` complaining about fusesocLib not being a derivation.
                 _: prev: {
                   passthru = prev.passthru // {
-                    lib = pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; };
+                    lib = (pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; }) // {
+                      cores = fusesoc.lib.mkCoreSet coreList;
+                    };
                   };
                 }
               );
@@ -70,12 +71,12 @@
             };
           };
           devShells.default = pkgs.mkShell {
-            packages = [ (fusesoc.lib.wrapFusesoc coreList) ];
+            packages = [ (with fusesoc.lib; wrapFusesoc cores) ];
           };
           checks =
             let
-              noVendor = coreSet.""."";
-              inherit (coreSet) bespoke-silicon-group;
+              noVendor = fusesoc.lib.cores.""."";
+              inherit (fusesoc.lib.cores) bespoke-silicon-group;
             in
             {
               inherit (noVendor)
@@ -92,7 +93,7 @@
               bsg-basejump_stl-hard = bespoke-silicon-group.basejump_stl.hard;
               bsg-basejump_stl-nonsynth = bespoke-silicon-group.basejump_stl.nonsynth;
               bsg-basejump_stl-rtl = bespoke-silicon-group.basejump_stl.rtl;
-              bsg-external-hardfloat = coreSet.bsg-external.hardfloat."0.0.1"; # original corename is mangled like this
+              bsg-external-hardfloat = fusesoc.lib.cores.bsg-external.hardfloat."0.0.1"; # original corename is mangled like this
               jtag_vpi_0-r3 = noVendor.jtag_vpi."0-r3";
               jtag_vpi_0-r4 = noVendor.jtag_vpi."0-r4";
               jtag_vpi_0-r5 = noVendor.jtag_vpi."0-r5";

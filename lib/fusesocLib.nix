@@ -187,48 +187,50 @@ rec {
     }
     .${provider.name} or (throw "Unknown provider name: ${provider.name}");
 
-  mkCoreSet =
-    coreList:
+  addCore =
+    prevSet: coreDrv:
     let
-      self = builtins.foldl' (
-        acc: coreDrv:
-        with coreDrv.parsed;
-        lib.recursiveUpdateUntil
-          (
-            path: _: _:
-            builtins.length path == 3
-          )
-          acc
-          {
-            ${vendor}.${library}.${name} =
-              let
-                prev = (acc.${vendor}.${library}.${name}.passthru or { });
-                linkedCore = coreDrv.overrideAttrs (
-                  _: prevAttrs: {
-                    passthru = prevAttrs.passthru // {
-                      dependencies = prevAttrs.passthru.dependencies ++ (resolveDeps coreDrv self);
-                    };
-                  }
-                );
-              in
-              # The last core is the latest version and the default if no semver attribute is specified.
-              linkedCore.overrideAttrs (
-                _: prevAttrs: {
-                  passthru =
-                    (removeAttrs prev (
-                      builtins.filter (n: isNull (builtins.match "^[[:digit:]]+.*$" n)) (lib.attrNames prev)
-                    ))
-                    // prevAttrs.passthru
-                    // {
-                      ${coreDrv.version} = linkedCore;
-                      list = [ linkedCore ] ++ (prev.list or [ ]); # list descending
-                    };
-                }
-              );
-          }
-      ) { } (builtins.sort (p: q: lib.versionOlder p.version q.version) coreList); # sort versions ascending
+      inherit (coreDrv.parsed) vendor library name;
+    in
+    lib.recursiveUpdateUntil
+      (
+        path: _: _:
+        builtins.length path == 3
+      )
+      prevSet
+      {
+        ${vendor}.${library}.${name} =
+          let
+            prevCore = prevSet.${vendor}.${library}.${name} or { };
+            prev = prevCore.passthru or { };
+            defaultCore =
+              if lib.versionAtLeast coreDrv.version (prevCore.version or "0") then coreDrv else prevCore;
+          in
+          defaultCore.overrideAttrs (
+            _: prevAttrs: {
+              passthru =
+                (removeAttrs prev (
+                  builtins.filter (n: isNull (builtins.match "^[[:digit:]]+.*$" n)) (lib.attrNames prev)
+                ))
+                // prevAttrs.passthru
+                // {
+                  ${coreDrv.version} = coreDrv;
+                  list = builtins.sort (p: q: lib.versionOlder p.version q.version) (
+                    [ coreDrv ] ++ (prev.list or [ ])
+                  ); # descending
+                };
+            }
+          );
+      };
+
+  extendCoreSet =
+    coreSet: coreList:
+    let
+      self = builtins.foldl' addCore coreSet (map (x: x.linkWith self) coreList);
     in
     self;
+
+  mkCoreSet = extendCoreSet { };
 
   wrapFusesoc =
     let
@@ -289,6 +291,7 @@ rec {
       mkRunners
       parseVlnv
       readYAML
+      resolveDeps
       stdenvNoCC
       stripCond
       ;

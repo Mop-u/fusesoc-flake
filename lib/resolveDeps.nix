@@ -28,5 +28,17 @@ let
     in
     deps ++ (builtins.concatMap (dep: fetchDepsRecursive dep coreSet) deps);
 
+  # uniquify by vlnv
+  unique =
+    coreList:
+    lib.mapAttrsToList (_: v: v) (
+      builtins.listToAttrs (
+        map (x: {
+          inherit (x.core) name;
+          value = x;
+        }) coreList
+      )
+    );
+
 in
-coreDrv: coreSet: lib.unique (map (drv: "${drv}") (fetchDepsRecursive coreDrv coreSet))
+coreDrv: coreSet: unique (fetchDepsRecursive coreDrv coreSet)

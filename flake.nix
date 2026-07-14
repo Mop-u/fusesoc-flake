@@ -10,7 +10,7 @@
   };
 
   outputs =
-    inputs@{
+    {
       self,
       nixpkgs,
       moppkgs,
@@ -60,7 +60,6 @@
                 };
               in
               pkg.overrideAttrs (
-                # hack to get around `nix flake check` complaining about fusesocLib not being a derivation.
                 _: prev: {
                   passthru = prev.passthru // {
                     lib = (pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; }) // {
@@ -69,14 +68,9 @@
                   };
                 }
               );
-
-            # This will be dropped in favor of fusesoc.lib in v0.3
-            fusesocLib = (pkgs.writeText "placeholder" "placeholder").overrideAttrs {
-              passthru = lib.warn "packages.${system}.fusesocLib is deprecated, use packages.${system}.fusesoc.lib instead." fusesoc.lib;
-            };
           };
           devShells.default = pkgs.mkShell {
-            packages = [ (with fusesoc.lib; wrapFusesoc cores) ];
+            packages = [ (fusesoc.lib.wrapFusesoc fusesoc.lib.cores) ];
           };
           checks =
             let

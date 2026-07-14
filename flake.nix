@@ -40,6 +40,9 @@
           coreList = pkgs.callPackage ./cores/fusesoc-cores.nix { fusesocLib = fusesoc.lib; };
         in
         {
+          # Flakes that export cores should extend/override legacyPackages.${system}.fusesocCores
+          legacyPackages.fusesocCores = fusesoc.lib.cores;
+
           packages = {
             inherit (moppkgs.packages.${system}) edalize;
 
@@ -59,7 +62,7 @@
                 _: prev: {
                   passthru = prev.passthru // {
                     lib = (pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; }) // {
-                      cores = fusesoc.lib.mkCoreSet coreList;
+                      cores = fusesoc.lib.mkCoreSet coreList; # Bundle fusesoc "stdlib" under fusesoc.lib.cores for convenience
                     };
                   };
                 }

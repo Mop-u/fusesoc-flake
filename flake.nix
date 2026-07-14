@@ -44,6 +44,8 @@
           legacyPackages.fusesocCores = fusesoc.lib.cores;
 
           packages = {
+            default = fusesoc.lib.dumpCores fusesoc.lib.cores;
+
             inherit (moppkgs.packages.${system}) edalize;
 
             yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };

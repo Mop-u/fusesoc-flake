@@ -234,7 +234,8 @@ rec {
   extendCoreSet =
     coreSet: coreList:
     let
-      self = builtins.foldl' addCore coreSet (map (x: x.linkWith self) coreList);
+      flattened = unique (coreList ++ (builtins.concatMap (x: x.dependencies or [ ]) coreList));
+      self = builtins.foldl' addCore coreSet (map (x: x.linkWith self) flattened);
     in
     self;
 

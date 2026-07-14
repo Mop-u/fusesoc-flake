@@ -1,11 +1,12 @@
 {
-  lib,
   fetchFromGitHub,
   fetchgit,
   fetchsvn,
   fetchurl,
   formats,
   fusesoc,
+  lib,
+  linkFarm,
   remarshal,
   runCommand,
   stdenv,
@@ -275,6 +276,15 @@ rec {
       export FUSESOC_CONFIG=${mkConf (if builtins.isList sources then sources else (toCoreList sources))}
       exec ${fusesoc}/bin/fusesoc $@
     '';
+
+  dumpCores =
+    coreSet:
+    linkFarm "fusesocCores" (
+      map (x: {
+        inherit (x) name;
+        path = x;
+      }) (toCoreList coreSet)
+    );
 
   runCore = import ./runCore.nix {
     inherit

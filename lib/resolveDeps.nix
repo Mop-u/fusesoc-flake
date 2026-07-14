@@ -1,6 +1,7 @@
 {
   lib,
   parseDependency,
+  unique,
 }:
 let
   parseDeps =
@@ -11,15 +12,28 @@ let
 
   fetchDepsShallow =
     coreDrv: coreSet:
-    map (
-      req:
-      let
-        core = coreSet.${req.vendor}.${req.library}.${req.name};
-        default = core; # toplevel derivation is always the latest version
-        candidates = core.list;
-      in
-      lib.findFirst (dep: req.condition dep.version) default candidates
-    ) (parseDeps coreDrv);
+    builtins.filter (x: !(isNull x)) (
+      map (
+        req:
+        let
+          existing = builtins.filter (
+            dep:
+            ({ inherit (dep.parsed) vendor library name; } == { inherit (req) vendor library name; })
+            && (req.condition dep.version)
+          ) coreDrv.dependencies;
+        in
+        if existing != [ ] then
+          # Use existing dependency if already set
+          (builtins.head existing)
+        else
+          (lib.findFirst (dep: req.condition dep.version) null (
+            coreSet.${req.vendor}.${req.library}.${req.name}.list or (lib.warn
+              "unable to find suitable dependency ${req.vendor}:${req.library}:${req.name} for core ${coreDrv.parsed.vendor}:${coreDrv.parsed.library}:${coreDrv.parsed.name}:${coreDrv.version}"
+              [ ]
+            )
+          ))
+      ) (parseDeps coreDrv)
+    );
 
   fetchDepsRecursive =
     coreDrv: coreSet:
@@ -27,18 +41,6 @@ let
       deps = fetchDepsShallow coreDrv coreSet;
     in
     deps ++ (builtins.concatMap (dep: fetchDepsRecursive dep coreSet) deps);
-
-  # uniquify by vlnv
-  unique =
-    coreList:
-    lib.mapAttrsToList (_: v: v) (
-      builtins.listToAttrs (
-        map (x: {
-          inherit (x.core) name;
-          value = x;
-        }) coreList
-      )
-    );
 
 in
 coreDrv: coreSet: unique (fetchDepsRecursive coreDrv coreSet)

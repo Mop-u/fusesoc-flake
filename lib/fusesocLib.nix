@@ -128,7 +128,7 @@ rec {
     in
     if (isNull stripped) then cond else builtins.head stripped;
 
-  resolveDeps = import ./resolveDeps.nix { inherit lib parseDependency; };
+  resolveDeps = import ./resolveDeps.nix { inherit lib parseDependency unique; };
 
   fetchProvider =
     core: hash:
@@ -186,6 +186,18 @@ rec {
           or (throw "Unknown url provider filetype ${provider.filetype} in ${core.name}");
     }
     .${provider.name} or (throw "Unknown provider name: ${provider.name}");
+
+  # uniquify by vlnv
+  unique =
+    coreList:
+    lib.mapAttrsToList (_: v: v) (
+      builtins.listToAttrs (
+        map (x: {
+          inherit (x.core) name;
+          value = x;
+        }) coreList
+      )
+    );
 
   addCore =
     prevSet: coreDrv:

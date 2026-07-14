@@ -209,15 +209,11 @@ rec {
           defaultCore.overrideAttrs (
             _: prevAttrs: {
               passthru =
-                (removeAttrs prev (
-                  builtins.filter (n: isNull (builtins.match "^[[:digit:]]+.*$" n)) (lib.attrNames prev)
-                ))
+                # copy previous core versions
+                (lib.filterAttrs (n: _: !(isNull (builtins.match "^[[:digit:]]+.*$" n))) prev)
                 // prevAttrs.passthru
                 // {
                   ${coreDrv.version} = coreDrv;
-                  list = builtins.sort (p: q: lib.versionOlder p.version q.version) (
-                    [ coreDrv ] ++ (prev.list or [ ])
-                  ); # descending
                 };
             }
           );

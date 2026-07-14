@@ -52,7 +52,7 @@ lib.extendMkDerivation {
           library
           name
         ]);
-      version = parsed.version;
+      inherit (finalAttrs.passthru.parsed) version;
       passthru = passthru // {
         withTools =
           toolList:
@@ -68,10 +68,17 @@ lib.extendMkDerivation {
           finalAttrs.finalPackage.overrideAttrs (
             final: prev: {
               passthru = prev.passthru // {
-                dependencies = prev.passthru.dependencies ++ (resolveDeps finalAttrs.finalPackage coreSet);
+                dependencies = resolveDeps finalAttrs.finalPackage coreSet;
               };
             }
           );
+        list = builtins.sort (p: q: lib.versionOlder p.version q.version) (
+          lib.mapAttrsToList (_: v: v) (
+            lib.filterAttrs (n: _: !(isNull (builtins.match "^[[:digit:]]+.*$" n))) (
+              { ${finalAttrs.passthru.parsed.version} = finalAttrs.finalPackage; } // finalAttrs.passthru
+            )
+          )
+        );
         inherit
           dependencies
           parsed

@@ -46,9 +46,19 @@ rec {
             version = noVersion;
           }
         else
+          let
+            dropIfMatch =
+              regex: list:
+              if (isNull (builtins.match regex (lib.last list))) then list else (lib.dropEnd 1 list);
+            dropRevision = dropIfMatch "^r[[:digit:]]+$";
+            dropVersion = list: if (builtins.length list > 1) then (dropIfMatch ''^[\.0-9]+$'' list) else list;
+            trimmed = dropVersion (dropRevision legacySplit);
+            dropAmt = (builtins.length legacySplit) - (builtins.length trimmed);
+          in
           {
-            name = builtins.head legacySplit;
-            version = lib.concatStringsSep "-" (builtins.tail legacySplit);
+            name = lib.concatStringsSep "-" trimmed;
+            version =
+              if dropAmt == 0 then noVersion else (lib.concatStringsSep "-" (lib.takeEnd dropAmt legacySplit));
           }
       )
 

@@ -1,0 +1,28 @@
+--- a/configs/swerv_config_gen.py	2026-07-21 14:02:09.102790287 +0100
++++ b/configs/swerv_config_gen.py	2026-07-21 16:20:29.167763696 +0100
+@@ -2,6 +2,7 @@
+ from fusesoc.capi2.generator import Generator
+ import os
+ import shutil
++import stat
+ import subprocess
+ import sys
+ import tempfile
+@@ -28,13 +29,15 @@
+                 "file_type" : "systemVerilogSource"}}]
+ 
+         tmp_dir = os.path.join(tempfile.mkdtemp(), 'core')
+-        shutil.copytree(script_root, tmp_dir)
++        shutil.copytree(script_root, tmp_dir, copy_function=shutil.copyfile)
++        os.chmod(path=os.path.join(tmp_dir, 'configs'), mode=0o777)
+ 
+         cwd = tmp_dir
+ 
+         env = os.environ.copy()
+         env['RV_ROOT'] = tmp_dir
+-        args = ['configs/swerv.config'] + self.config.get('args', [])
++        os.chmod(path=os.path.join(cwd, 'configs/swerv.config'), mode=stat.S_IRWXU)
++        args = [os.path.join(cwd, 'configs/swerv.config')] + self.config.get('args', [])
+         rc = subprocess.call(args, cwd=cwd, env=env, stdout=devnull)
+         if rc:
+             exit(1)

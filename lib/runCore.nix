@@ -1,8 +1,10 @@
 {
+  dumpCores,
+  fusesoc,
   lib,
-  stdenv,
   parseVlnv,
-  wrapFusesoc,
+  stdenv,
+  writableTmpDirAsHomeHook,
 }:
 lib.extendMkDerivation {
   constructDrv = stdenv.mkDerivation;
@@ -29,7 +31,6 @@ lib.extendMkDerivation {
       opt = str: lib.optional (str != "") str;
       mapOpts = strs: builtins.concatLists (map opt strs);
       parsed = parseVlnv finalAttrs.passthru.core.name;
-      fusesocWrapped = wrapFusesoc finalAttrs.passthru.dependencies;
     in
     {
       pname =
@@ -59,14 +60,13 @@ lib.extendMkDerivation {
           tools
           ;
       };
-      nativeBuildInputs = finalAttrs.passthru.tools ++ [ fusesocWrapped ];
-      phases = [
-        "buildPhase"
-        "installPhase"
+      nativeBuildInputs = finalAttrs.passthru.tools ++ [
+        writableTmpDirAsHomeHook
+        fusesoc
       ];
+      src = dumpCores finalAttrs.passthru.dependencies;
       buildPhase = lib.concatStringsSep " " [
-        "HOME=$TEMP"
-        "${fusesocWrapped}/bin/fusesoc"
+        "fusesoc --cores-root $src"
         "run --target ${finalAttrs.passthru.target}"
         finalAttrs.passthru.extraArgs
         finalAttrs.passthru.core.name

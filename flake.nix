@@ -70,7 +70,17 @@
               );
           };
           devShells.default = pkgs.mkShell {
-            packages = [ (fusesoc.lib.wrapFusesoc fusesoc.lib.cores) ];
+            packages = [
+              fusesoc
+              pkgs.iverilog
+              pkgs.verilator
+              pkgs.icestorm
+              pkgs.yosys
+              pkgs.nextpnr
+            ];
+            shellHook = ''
+              export FUSESOC_CONFIG=${fusesoc.lib.mkConf fusesoc.lib.cores}
+            '';
           };
           checks =
             let

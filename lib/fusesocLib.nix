@@ -11,6 +11,7 @@
   runCommand,
   stdenv,
   stdenvNoCC,
+  writableTmpDirAsHomeHook,
   writeScriptBin,
   writeText,
 }:
@@ -48,8 +49,7 @@ rec {
         else
           let
             dropIfMatch =
-              regex: list:
-              if (isNull (builtins.match regex (lib.last list))) then list else (lib.dropEnd 1 list);
+              regex: list: if (isNull (builtins.match regex (lib.last list))) then list else (lib.dropEnd 1 list);
             dropRevision = dropIfMatch "^r[[:digit:]]+$";
             dropVersion = list: if (builtins.length list > 1) then (dropIfMatch ''^[\.0-9]+$'' list) else list;
             trimmed = dropVersion (dropRevision legacySplit);
@@ -259,49 +259,39 @@ rec {
     coreSet:
     builtins.concatMap (x: x.value.list or [ x.value ]) (unwrap (unwrap (lib.attrsToList coreSet)));
 
-  wrapFusesoc =
+  mkConf =
+    cores:
     let
-      sanitize =
-        regex: str:
-        lib.concatStrings (
-          map (x: if (builtins.match regex x) != null then x else "_") (lib.stringToCharacters str)
-        );
-      mkLib = name: path: ''
-        [library.${sanitize "([a-zA-Z0-9])" name}]
-        location = ${path}
-        sync-uri = ${path}
-        sync-type = local
-        auto-sync = false
-      '';
-      mkConf =
-        sources:
-        writeText "fusesoc.conf" (
-          lib.concatLines (
-            builtins.foldl' (acc: elem: acc ++ [ (mkLib "${baseNameOf "${elem}"}" elem) ]) [ ] sources
-          )
-        );
+      libPath = dumpCores cores;
     in
-    sources:
-    writeScriptBin "fusesoc" ''
-      export FUSESOC_CONFIG=${mkConf (if builtins.isList sources then sources else (toCoreList sources))}
-      exec ${fusesoc}/bin/fusesoc $@
+    writeText "fusesoc.conf" ''
+      [library.fusesoc-flake]
+      location = ${libPath}
+      sync-url = ${libPath}
+      sync-type = local
+      auto-sync = false
     '';
 
   dumpCores =
-    coreSet:
+    cores:
+    let
+      coreList = if builtins.isList cores then cores else (toCoreList cores);
+    in
     linkFarm "fusesocCores" (
       map (x: {
         inherit (x) name;
         path = x;
-      }) (toCoreList coreSet)
+      }) coreList
     );
 
   runCore = import ./runCore.nix {
     inherit
+      dumpCores
+      fusesoc
       lib
-      stdenv
       parseVlnv
-      wrapFusesoc
+      stdenv
+      writableTmpDirAsHomeHook
       ;
   };
 
@@ -355,4 +345,13 @@ rec {
       inherit core coreRoot;
       coreName = "${(parseVlnv core.name).name}.core";
     };
+
+  wrapFusesoc =
+    sources:
+    lib.warn "wrapFusesoc is deprecated, add `export FUSESOC_CONFIG=\${fusesoc.lib.dumpCores coreSet}` to your shellHook instead." (
+      writeScriptBin "fusesoc" ''
+        export FUSESOC_CONFIG=${mkConf sources}
+        exec ${fusesoc}/bin/fusesoc $@
+      ''
+    );
 }

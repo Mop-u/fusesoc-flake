@@ -17,23 +17,27 @@ lib.extendMkDerivation {
     {
       coreRoot,
       coreName,
-      core ? readYAML "${coreRoot}/${coreName}",
+      core ? (readYAML "${coreRoot}/${coreName}"),
+      patches ? [ ],
       providerHash ? "",
+      preservePaths ? [ ],
       tools ? [ ],
       dependencies ? [ ],
       passthru ? { },
     }:
     let
       parsed = parseVlnv finalAttrs.passthru.core.name;
-      coreFileset = builtins.concatLists (
-        lib.mapAttrsToList (
-          n: v:
-          map (
-            entry:
-            stripCond (if builtins.isAttrs entry then (builtins.head (builtins.attrNames entry)) else entry)
-          ) (v.files or [ ])
-        ) finalAttrs.passthru.core.filesets
-      );
+      coreFileset =
+        (builtins.concatLists (
+          lib.mapAttrsToList (
+            n: v:
+            map (
+              entry:
+              stripCond (if builtins.isAttrs entry then (builtins.head (builtins.attrNames entry)) else entry)
+            ) (v.files or [ ])
+          ) (finalAttrs.passthru.core.filesets or { })
+        ))
+        ++ finalAttrs.passthru.preservePaths;
       useProvider =
         let
           inherit (finalAttrs.passthru) core;
@@ -82,12 +86,13 @@ lib.extendMkDerivation {
         inherit
           dependencies
           parsed
+          preservePaths
           tools
           core
           ;
         run = mkRunners {
           inherit (finalAttrs.passthru) core tools;
-          dependencies = finalAttrs.passthru.dependencies ++ [ "${finalAttrs.finalPackage}" ];
+          dependencies = finalAttrs.passthru.dependencies ++ [ finalAttrs.finalPackage ];
         };
       };
       phases = [
@@ -95,13 +100,12 @@ lib.extendMkDerivation {
         "patchPhase"
         "installPhase"
       ];
-      patches = map (patch: "${coreRoot}/${patch}") (finalAttrs.passthru.core.provider.patches or [ ]);
+      patches =
+        patches ++ (map (patch: "${coreRoot}/${patch}") (finalAttrs.passthru.core.provider.patches or [ ]));
       src = if useProvider then fetchProvider finalAttrs.passthru.core providerHash else coreRoot;
       installPhase =
         let
-          patchedCore = finalAttrs.passthru.core // {
-            provider.name = "local";
-          };
+          patchedCore = removeAttrs finalAttrs.passthru.core [ "provider" ];
         in
         ''
           mkdir -p $out/

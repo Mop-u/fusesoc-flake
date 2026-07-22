@@ -76,7 +76,7 @@ lib.extendMkDerivation {
               };
             }
           );
-        list = builtins.sort (p: q: lib.versionOlder p.version q.version) (
+        list = builtins.sort (p: q: lib.versionOlder q.version p.version) (
           lib.mapAttrsToList (_: v: v) (
             lib.filterAttrs (n: _: !(isNull (builtins.match "^[[:digit:]]+.*$" n))) (
               { ${finalAttrs.passthru.parsed.version} = finalAttrs.finalPackage; } // finalAttrs.passthru

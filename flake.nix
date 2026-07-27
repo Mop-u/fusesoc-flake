@@ -70,8 +70,6 @@
 
             inherit (moppkgs.packages.${system}) edalize;
 
-            yosys-slang = pkgs.callPackage ./pkgs/yosys-slang.nix { };
-
             # fusesoc lib is accessible thru `packages.${system}.fusesoc.lib`
             fusesoc =
               let

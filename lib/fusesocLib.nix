@@ -243,8 +243,9 @@ rec {
       };
 
   extendCoreSet =
-    coreSet: coreList:
+    coreSet: cores:
     let
+      coreList = coerceCoresToList cores;
       flattened = unique (coreList ++ (builtins.concatMap (x: x.dependencies or [ ]) coreList));
       self = builtins.foldl' addCore coreSet (map (x: x.linkWith self) flattened);
     in
@@ -258,6 +259,8 @@ rec {
     in
     coreSet:
     builtins.concatMap (x: x.value.list or [ x.value ]) (unwrap (unwrap (lib.attrsToList coreSet)));
+
+  coerceCoresToList = cores: if builtins.isList cores then cores else (toCoreList cores);
 
   mkConf =
     cores:
@@ -274,14 +277,11 @@ rec {
 
   dumpCores =
     cores:
-    let
-      coreList = if builtins.isList cores then cores else (toCoreList cores);
-    in
     linkFarm "fusesocCores" (
       map (x: {
         inherit (x) name;
         path = x;
-      }) coreList
+      }) (coerceCoresToList cores)
     );
 
   runCore = import ./runCore.nix {

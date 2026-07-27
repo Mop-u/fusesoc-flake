@@ -24,7 +24,10 @@
           map (system: builtins.mapAttrs (_: v: { ${system} = v; }) (f system)) systems
         );
     in
-    forEachSystem
+    {
+      overlays.default = final: _: { fusesocTools = final.callPackage ./lib/fusesocLib.nix { }; };
+    }
+    // (forEachSystem
       [
         "aarch64-darwin"
         "aarch64-linux"
@@ -37,9 +40,10 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           inherit (self.packages.${system}) fusesoc;
+          inherit (self.legacyPackages.${system}) fusesocTools fusesocCores;
           coreList =
-            (pkgs.callPackage ./cores/fusesoc-cores.nix { fusesocLib = fusesoc.lib; })
-            ++ (fusesoc.lib.importCores (
+            (pkgs.callPackage ./cores/fusesoc-cores.nix { fusesocLib = fusesocTools; })
+            ++ (fusesocTools.importCores (
               pkgs.fetchFromGitHub {
                 name = "openrisc-cores-github";
                 owner = "openrisc";
@@ -49,7 +53,7 @@
               }
             ))
             ++ [
-              (fusesoc.lib.importCore {
+              (fusesocTools.importCore {
                 coreName = "elf-loader.core";
                 coreRoot = pkgs.fetchFromGitHub {
                   name = "elf-loader-github";
@@ -60,34 +64,39 @@
                 };
               })
             ];
+          fusesocWithUpdatedEdalize = pkgs.fusesoc.override {
+            python3Packages = pkgs.python3Packages // {
+              inherit (moppkgs.packages.${system}) edalize;
+            };
+          };
         in
         {
-          # Flakes that export cores should extend/override legacyPackages.${system}.fusesocCores
-          legacyPackages.fusesocCores = fusesoc.lib.cores;
+          legacyPackages = {
+            fusesocCores = fusesocTools.mkCoreSet coreList;
+            fusesocTools = pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = fusesocWithUpdatedEdalize; };
+          };
 
           packages = {
-            default = fusesoc.lib.dumpCores fusesoc.lib.cores;
+            default = fusesocTools.dumpCores fusesocCores;
 
-            inherit (moppkgs.packages.${system}) edalize;
-
-            # fusesoc lib is accessible thru `packages.${system}.fusesoc.lib`
-            fusesoc =
-              let
-                pkg = pkgs.fusesoc.override {
-                  python3Packages = pkgs.python3Packages // {
-                    inherit (moppkgs.packages.${system}) edalize;
-                  };
+            # fusesoc lib is accessible thru `packages.${system}.fusesoc.lib` (deprecated)
+            fusesoc = fusesocWithUpdatedEdalize.overrideAttrs (
+              _: prev: {
+                passthru = prev.passthru // {
+                  lib =
+                    lib.warn
+                      "use `fusesoc-flake.legacyPackages.${system}.fusesocTools` instead of `fusesoc-flake.packages.${system}.fusesoc.lib`"
+                      (
+                        fusesocTools
+                        // {
+                          cores = lib.warn "use `fusesoc-flake.legacyPackages.${system}.fusesocCores` instead of `fusesoc-flake.packages.${system}.fusesoc.lib.cores`" (
+                            fusesocTools.mkCoreSet coreList
+                          ); # Bundle fusesoc "stdlib" under fusesoc.lib.cores for convenience
+                        }
+                      );
                 };
-              in
-              pkg.overrideAttrs (
-                _: prev: {
-                  passthru = prev.passthru // {
-                    lib = (pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = pkg; }) // {
-                      cores = fusesoc.lib.mkCoreSet coreList; # Bundle fusesoc "stdlib" under fusesoc.lib.cores for convenience
-                    };
-                  };
-                }
-              );
+              }
+            );
           };
           devShells.default = pkgs.mkShell {
             packages = [
@@ -99,13 +108,12 @@
               pkgs.nextpnr
             ];
             shellHook = ''
-              export FUSESOC_CONFIG=${fusesoc.lib.mkConf fusesoc.lib.cores}
+              export FUSESOC_CONFIG=${fusesocTools.mkConf fusesocCores}
             '';
           };
           checks =
             let
-              noVendor = fusesoc.lib.cores.""."";
-              inherit (fusesoc.lib) cores;
+              noVendor = fusesocCores.""."";
             in
             {
               inherit (self.packages.${system}) default;
@@ -125,12 +133,13 @@
                 pkgs.yosys
                 pkgs.nextpnr
               ];
-              blinky-tinyfpga_bx = cores.fusesoc.utils.blinky.run.tinyfpga_bx.withTools [
+              blinky-tinyfpga_bx = fusesocCores.fusesoc.utils.blinky.run.tinyfpga_bx.withTools [
                 pkgs.icestorm
                 pkgs.yosys
                 pkgs.nextpnr
               ];
             };
         }
-      );
+      )
+    );
 }

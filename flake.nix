@@ -72,6 +72,7 @@
         in
         {
           legacyPackages = {
+            inherit (self.packages.${system}) fusesoc;
             fusesocCores = fusesocTools.mkCoreSet coreList;
             fusesocTools = pkgs.callPackage ./lib/fusesocLib.nix { fusesoc = fusesocWithUpdatedEdalize; };
           };

@@ -1,3 +1,6 @@
+
+This project has moved to [my tangled.org repo](https://tangled.org/did:plc:omuys45no7bhskevzink4e2t) as I'm getting a little tired of github outages
+
 # Fusesoc Flake
 This is a nix library intended to help with packaging fusesoc cores (and running them) in nix derivations, as well as creating reproducible dev shells.
 
